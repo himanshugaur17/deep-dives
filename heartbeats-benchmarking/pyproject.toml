@@ -1,7 +1,7 @@
 [project]
-name = "deep-dives"
+name = "heartbeats-benchmarking"
 version = "0.1.0"
-description = ""
+description = "Benchmarking tools for heartbeat protocols and connection overhead analysis"
 requires-python = ">=3.13"
 dependencies = [
     "psycopg2-binary>=2.9.9",
