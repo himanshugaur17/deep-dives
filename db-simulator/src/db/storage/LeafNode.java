@@ -21,22 +21,32 @@ public class LeafNode implements DiskPage {
 
     @Override
     public SplitResult insertRow(Row.Key key, Row.Value value) {
+        System.out.println(
+                "\n[LEAF NODE] Attempting to insert row with key=" + key.key() + ", value=\"" + value.value() + "\"");
         Row newRow = new Row(key, value);
 
         int insertPosition = Collections.binarySearch(rowData, newRow,
                 Comparator.comparingInt(row -> row.rowKey().key()));
         // I have assumed that we won't be adding
         // duplicate keys
-        if (insertPosition >= 0)
+        if (insertPosition >= 0) {
             throw new IllegalArgumentException("duplicates are not supported");
-        else
+        } else {
             insertPosition = -(insertPosition + 1);
+        }
 
         rowData.add(insertPosition, newRow);
+        System.out.println("[LEAF NODE] ✓ Row inserted at position " + insertPosition + " in leaf node");
+        System.out.println("[LEAF NODE] Current leaf contains " + rowData.size() + " rows (max=" + maxRows + ")");
+
         boolean isSplitNeeded = isSplitNeeded();
 
-        if (!isSplitNeeded)
+        if (!isSplitNeeded) {
+            System.out.println("[LEAF NODE] No split needed. Leaf node has space.");
             return null;
+        }
+
+        System.out.println("[LEAF NODE] ⚠ SPLIT REQUIRED! Leaf node exceeded capacity.");
         return split();
 
     }
@@ -46,14 +56,19 @@ public class LeafNode implements DiskPage {
     }
 
     private SplitResult split() {
+        System.out.println("[LEAF NODE] === Beginning leaf split operation ===");
         LeafNode newLeafNode = new LeafNode();
         int fromIndex = rowData.size() / 2;
         int toIndex = rowData.size();
+
         moveDataToNewLeafNode(newLeafNode, fromIndex, toIndex);
+
         adjustPointers(newLeafNode, this);
 
         // Separator key is the first key of the new right leaf
         Row.Key separatorKey = newLeafNode.rowData.get(0).rowKey();
+        System.out.println("[LEAF NODE] Separator key for parent: " + separatorKey.key());
+        System.out.println("[LEAF NODE] === Leaf split complete ===");
         return new SplitResult(separatorKey, newLeafNode);
     }
 
@@ -64,6 +79,7 @@ public class LeafNode implements DiskPage {
     }
 
     private void adjustPointers(LeafNode newLeafNode, LeafNode currentLeafNode) {
+        System.out.println("[LEAF NODE] Adjusting doubly-linked list pointers between leaf nodes");
         newLeafNode.rightPtr = currentLeafNode.rightPtr;
         if (newLeafNode.rightPtr != null) {
             newLeafNode.rightPtr.leftPtr = newLeafNode;
