@@ -5,17 +5,25 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-import db.metrics.SplitMetrics;
+import db.metrics.BTreeMetrics;
 import db.storage.row.Row;
 
 public class InternalNode implements DiskPage {
-    private static final int MAX_KEYS = 2;
+    private static final int MAX_KEYS = 3;
     private final List<Row.Key> keys;
     private final List<DiskPage> children;
 
     public InternalNode() {
         this.keys = new ArrayList<>();
         this.children = new ArrayList<>();
+    }
+
+    public static InternalNode createAsRoot(DiskPage leftChild, DiskPage rightChild, Row.Key separator) {
+        InternalNode root = new InternalNode();
+        root.keys.add(separator);
+        root.children.add(leftChild);
+        root.children.add(rightChild);
+        return root;
     }
 
     @Override
@@ -64,9 +72,14 @@ public class InternalNode implements DiskPage {
         return childIndex;
     }
 
+    public DiskPage findChildForKey(Row.Key key) {
+        int childIndex = findChildIndex(key);
+        return children.get(childIndex);
+    }
+
     private SplitResult split() {
         System.out.println("[INTERNAL NODE] === Beginning internal node split ===");
-        SplitMetrics.getInstance().recordInternalSplit();
+        BTreeMetrics.getInstance().recordInternalSplit();
         int splitPoint = (keys.size() + 1) / 2;
         InternalNode rightNode = new InternalNode();
 
@@ -89,7 +102,8 @@ public class InternalNode implements DiskPage {
 
         // Remove right half from current node
         keys.subList(splitPoint, keys.size()).clear();
-        children.subList(splitPoint, children.size()).clear();
+        // Left node keeps splitPoint+1 children (N keys need N+1 children)
+        children.subList(splitPoint + 1, children.size()).clear();
     }
 
 }

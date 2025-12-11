@@ -5,25 +5,37 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-import db.metrics.SplitMetrics;
+import db.metrics.BTreeMetrics;
 import db.storage.row.Row;
 
 public class LeafNode implements DiskPage {
+    private static long pageIdCounter = 0;
+
+    private final long pageId;
     LeafNode leftPtr;
     LeafNode rightPtr;
     List<Row> rowData;
-    private int maxRows = 4;
+    private int maxRows = 5;
 
     public LeafNode() {
+        this.pageId = ++pageIdCounter;
         this.rowData = new ArrayList<>();
         leftPtr = null;
         rightPtr = null;
+    }
+
+    public long getPageId() {
+        return pageId;
     }
 
     @Override
     public SplitResult insertRow(Row.Key key, Row.Value value) {
         System.out.println(
                 "\n[LEAF NODE] Attempting to insert row with key=" + key.key() + ", value=\"" + value.value() + "\"");
+
+        // Every insert modifies the page, so it needs to be written back to disk
+        BTreeMetrics.getInstance().recordDiskWrite();
+
         Row newRow = new Row(key, value);
 
         int insertPosition = Collections.binarySearch(rowData, newRow,
@@ -58,8 +70,11 @@ public class LeafNode implements DiskPage {
 
     private SplitResult split() {
         System.out.println("[LEAF NODE] === Beginning leaf split operation ===");
-        SplitMetrics.getInstance().recordLeafSplit();
+        BTreeMetrics.getInstance().recordLeafSplit();
+
         LeafNode newLeafNode = new LeafNode();
+        // New page created, needs to be written to disk
+        BTreeMetrics.getInstance().recordDiskWrite();
         int fromIndex = rowData.size() / 2;
         int toIndex = rowData.size();
 
