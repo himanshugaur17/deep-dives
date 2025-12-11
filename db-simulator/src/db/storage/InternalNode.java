@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+import db.metrics.SplitMetrics;
 import db.storage.row.Row;
 
 public class InternalNode implements DiskPage {
@@ -65,6 +66,7 @@ public class InternalNode implements DiskPage {
 
     private SplitResult split() {
         System.out.println("[INTERNAL NODE] === Beginning internal node split ===");
+        SplitMetrics.getInstance().recordInternalSplit();
         int splitPoint = (keys.size() + 1) / 2;
         InternalNode rightNode = new InternalNode();
 

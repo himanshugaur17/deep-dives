@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+import db.metrics.SplitMetrics;
 import db.storage.row.Row;
 
 public class LeafNode implements DiskPage {
@@ -57,6 +58,7 @@ public class LeafNode implements DiskPage {
 
     private SplitResult split() {
         System.out.println("[LEAF NODE] === Beginning leaf split operation ===");
+        SplitMetrics.getInstance().recordLeafSplit();
         LeafNode newLeafNode = new LeafNode();
         int fromIndex = rowData.size() / 2;
         int toIndex = rowData.size();
