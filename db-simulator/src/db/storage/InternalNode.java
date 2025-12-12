@@ -5,15 +5,24 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+import db.core.in.memory.buffer.BufferPool;
 import db.metrics.BTreeMetrics;
 import db.storage.row.Row;
 
 public class InternalNode implements DiskPage {
-    private static final int MAX_KEYS = 3;
+    private static int MAX_KEYS = 3;
+    private final long pageId;
     private final List<Row.Key> keys;
     private final List<DiskPage> children;
 
+    public static void setMaxKeys(int max) {
+        MAX_KEYS = max;
+    }
+
     public InternalNode() {
+        this.pageId = PageIdGenerator.getInstance().nextId();
+        // New page created in memory - add to buffer but don't count as disk read
+        BufferPool.getInstance().addNewPageToBuffer(this.pageId);
         this.keys = new ArrayList<>();
         this.children = new ArrayList<>();
     }
@@ -27,15 +36,16 @@ public class InternalNode implements DiskPage {
     }
 
     @Override
+    public Long getPageId() {
+        return pageId;
+    }
+
+    @Override
     public SplitResult insertRow(Row.Key key, Row.Value value) {
         int childIndex = findChildIndex(key);
-        System.out.println("[INTERNAL NODE] Navigating to child at index " + childIndex + " (out of " + children.size()
-                + " children)");
-
         DiskPage childPage = children.get(childIndex);
-        String childType = childPage instanceof LeafNode ? "LEAF" : "INTERNAL";
-        System.out.println("[INTERNAL NODE] Descending to " + childType + " node");
-
+        // Accessing child page requires reading it from disk if not in buffer
+        BufferPool.getInstance().tryReadingPageFromMemory(childPage.getPageId());
         SplitResult childSplitResult = childPage.insertRow(key, value);
 
         if (childSplitResult == null) {
@@ -63,7 +73,9 @@ public class InternalNode implements DiskPage {
         int keyPosition = findChildIndex(separator);
         keys.add(keyPosition, separator);
         children.add(keyPosition + 1, rightChild);
-        System.out.println("[INTERNAL NODE] Separator key " + separator.key() + " inserted at position " + keyPosition);
+
+        // Page has been modified - mark as dirty for write-back on eviction
+        BufferPool.getInstance().markPageDirty(this.pageId);
     }
 
     private int findChildIndex(Row.Key key) {
@@ -72,38 +84,23 @@ public class InternalNode implements DiskPage {
         return childIndex;
     }
 
-    public DiskPage findChildForKey(Row.Key key) {
-        int childIndex = findChildIndex(key);
-        return children.get(childIndex);
-    }
-
     private SplitResult split() {
-        System.out.println("[INTERNAL NODE] === Beginning internal node split ===");
         BTreeMetrics.getInstance().recordInternalSplit();
-        int splitPoint = (keys.size() + 1) / 2;
+        int middleIndex = keys.size() / 2;
+        Row.Key separator = keys.get(middleIndex);
+
         InternalNode rightNode = new InternalNode();
 
-        moveDataToRightNode(rightNode, splitPoint);
-        System.out.println(
-                "[INTERNAL NODE] Left internal node: " + keys.size() + " keys, " + children.size() + " children");
-        System.out.println("[INTERNAL NODE] Right internal node: " + rightNode.keys.size() + " keys, "
-                + rightNode.children.size() + " children");
+        moveKeysToNewNode(middleIndex, rightNode);
 
-        Row.Key separator = rightNode.keys.get(0);
-        System.out.println("[INTERNAL NODE] Promoting separator key=" + separator.key() + " to parent");
-        System.out.println("[INTERNAL NODE] === Internal node split complete ===");
         return new SplitResult(separator, rightNode);
     }
 
-    private void moveDataToRightNode(InternalNode rightNode, int splitPoint) {
-        // Copy right half to new node
-        rightNode.keys.addAll(keys.subList(splitPoint, keys.size()));
-        rightNode.children.addAll(children.subList(splitPoint, children.size()));
-
-        // Remove right half from current node
-        keys.subList(splitPoint, keys.size()).clear();
-        // Left node keeps splitPoint+1 children (N keys need N+1 children)
-        children.subList(splitPoint + 1, children.size()).clear();
+    private void moveKeysToNewNode(int middleIndex, InternalNode rightNode) {
+        rightNode.keys.addAll(keys.subList(middleIndex + 1, keys.size()));
+        rightNode.children.addAll(children.subList(middleIndex + 1, children.size()));
+        keys.subList(middleIndex, keys.size()).clear();
+        children.subList(middleIndex + 1, children.size()).clear();
     }
 
 }

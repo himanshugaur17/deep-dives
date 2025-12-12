@@ -5,37 +5,38 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+import db.core.in.memory.buffer.BufferPool;
 import db.metrics.BTreeMetrics;
 import db.storage.row.Row;
 
 public class LeafNode implements DiskPage {
-    private static long pageIdCounter = 0;
 
     private final long pageId;
     LeafNode leftPtr;
     LeafNode rightPtr;
     List<Row> rowData;
-    private int maxRows = 5;
+    private static int maxRows = 5;
+
+    public static void setMaxRows(int max) {
+        maxRows = max;
+    }
 
     public LeafNode() {
-        this.pageId = ++pageIdCounter;
+        this.pageId = PageIdGenerator.getInstance().nextId();
+        // New page created in memory - add to buffer but don't count as disk read
+        BufferPool.getInstance().addNewPageToBuffer(this.pageId);
         this.rowData = new ArrayList<>();
         leftPtr = null;
         rightPtr = null;
     }
 
-    public long getPageId() {
+    @Override
+    public Long getPageId() {
         return pageId;
     }
 
     @Override
     public SplitResult insertRow(Row.Key key, Row.Value value) {
-        System.out.println(
-                "\n[LEAF NODE] Attempting to insert row with key=" + key.key() + ", value=\"" + value.value() + "\"");
-
-        // Every insert modifies the page, so it needs to be written back to disk
-        BTreeMetrics.getInstance().recordDiskWrite();
-
         Row newRow = new Row(key, value);
 
         int insertPosition = Collections.binarySearch(rowData, newRow,
@@ -49,8 +50,9 @@ public class LeafNode implements DiskPage {
         }
 
         rowData.add(insertPosition, newRow);
-        System.out.println("[LEAF NODE] ✓ Row inserted at position " + insertPosition + " in leaf node");
-        System.out.println("[LEAF NODE] Current leaf contains " + rowData.size() + " rows (max=" + maxRows + ")");
+
+        // Page has been modified - mark as dirty for write-back on eviction
+        BufferPool.getInstance().markPageDirty(this.pageId);
 
         boolean isSplitNeeded = isSplitNeeded();
 
@@ -58,7 +60,6 @@ public class LeafNode implements DiskPage {
             System.out.println("[LEAF NODE] No split needed. Leaf node has space.");
             return null;
         }
-
         System.out.println("[LEAF NODE] ⚠ SPLIT REQUIRED! Leaf node exceeded capacity.");
         return split();
 
@@ -73,8 +74,6 @@ public class LeafNode implements DiskPage {
         BTreeMetrics.getInstance().recordLeafSplit();
 
         LeafNode newLeafNode = new LeafNode();
-        // New page created, needs to be written to disk
-        BTreeMetrics.getInstance().recordDiskWrite();
         int fromIndex = rowData.size() / 2;
         int toIndex = rowData.size();
 
@@ -84,8 +83,6 @@ public class LeafNode implements DiskPage {
 
         // Separator key is the first key of the new right leaf
         Row.Key separatorKey = newLeafNode.rowData.get(0).rowKey();
-        System.out.println("[LEAF NODE] Separator key for parent: " + separatorKey.key());
-        System.out.println("[LEAF NODE] === Leaf split complete ===");
         return new SplitResult(separatorKey, newLeafNode);
     }
 
@@ -96,7 +93,6 @@ public class LeafNode implements DiskPage {
     }
 
     private void adjustPointers(LeafNode newLeafNode, LeafNode currentLeafNode) {
-        System.out.println("[LEAF NODE] Adjusting doubly-linked list pointers between leaf nodes");
         newLeafNode.rightPtr = currentLeafNode.rightPtr;
         if (newLeafNode.rightPtr != null) {
             newLeafNode.rightPtr.leftPtr = newLeafNode;
