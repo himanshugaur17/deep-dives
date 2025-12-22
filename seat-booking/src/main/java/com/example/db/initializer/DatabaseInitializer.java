@@ -41,17 +41,33 @@ public class DatabaseInitializer {
             }
 
             String sqlContent = readSqlFile(filePath);
+            System.out.println("Read SQL file: " + filePath + " (" + sqlContent.length() + " characters)");
 
             // Split by semicolon to execute each statement separately
             String[] statements = sqlContent.split(";");
+            System.out.println("Found " + statements.length + " SQL statements");
 
             try (Statement stmt = conn.createStatement()) {
+                int executed = 0;
                 for (String sql : statements) {
-                    sql = sql.trim();
-                    if (!sql.isEmpty() && !sql.startsWith("--")) {
-                        stmt.execute(sql);
+                    // Remove comments and trim
+                    String[] lines = sql.split("\n");
+                    StringBuilder cleanSql = new StringBuilder();
+                    for (String line : lines) {
+                        line = line.trim();
+                        if (!line.startsWith("--") && !line.isEmpty()) {
+                            cleanSql.append(line).append(" ");
+                        }
+                    }
+
+                    String finalSql = cleanSql.toString().trim();
+                    if (!finalSql.isEmpty()) {
+                        System.out.println("Executing statement " + (executed + 1) + ": " + finalSql.substring(0, Math.min(50, finalSql.length())) + "...");
+                        stmt.execute(finalSql);
+                        executed++;
                     }
                 }
+                System.out.println("Executed " + executed + " statements from " + filePath);
             }
 
             System.out.println("Successfully executed: " + filePath);
@@ -87,17 +103,21 @@ public class DatabaseInitializer {
 
     private void dropTables() {
         System.out.println("Dropping existing tables...");
-        try (Connection conn = connectionMgr.getConnection();
-             Statement stmt = conn.createStatement()) {
+        try (Connection conn = connectionMgr.getConnection()) {
+            if (conn == null) {
+                System.err.println("Failed to get connection for dropping tables, skipping...");
+                return;
+            }
 
-            stmt.execute("DROP TABLE IF EXISTS seats CASCADE");
-            stmt.execute("DROP TABLE IF EXISTS users CASCADE");
-
-            System.out.println("Tables dropped successfully");
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("DROP TABLE IF EXISTS seats CASCADE");
+                stmt.execute("DROP TABLE IF EXISTS users CASCADE");
+                System.out.println("Tables dropped successfully");
+            }
 
         } catch (Exception e) {
-            System.err.println("Error dropping tables");
-            e.printStackTrace();
+            System.err.println("Error dropping tables (may not exist yet, continuing...)");
+            // Don't print full stack trace, just continue
         }
     }
 }

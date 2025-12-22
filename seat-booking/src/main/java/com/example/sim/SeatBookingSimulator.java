@@ -16,6 +16,13 @@ public class SeatBookingSimulator {
 
         System.out.println("=== Seat Booking Simulator Started ===\n");
 
+        // Print system information
+        int availableCores = Runtime.getRuntime().availableProcessors();
+        System.out.println("System Information:");
+        System.out.println("Available CPU Cores: " + availableCores);
+        System.out.println("Java Version: " + System.getProperty("java.version"));
+        System.out.println();
+
         // Initialize database with fresh data
         databaseInitializer.resetDatabase();
 
@@ -33,12 +40,12 @@ public class SeatBookingSimulator {
 
     private static void runSimulation(DbConnectionMgr connectionMgr, SQLQueryLockingStrategy strategy)
             throws InterruptedException {
-        int numberOfUsers = 100;
+        int numberOfUsers = 500;
         List<UserSeatBookingThread> threads = new ArrayList<>();
 
         long simulationStartTime = System.currentTimeMillis();
 
-        // Create and start 100 threads
+        // Create and start 500 threads
         System.out.println("Creating " + numberOfUsers + " booking threads...");
         for (int i = 1; i <= numberOfUsers; i++) {
             UserSeatBookingThread thread = new UserSeatBookingThread(connectionMgr, i, strategy);
@@ -54,13 +61,12 @@ public class SeatBookingSimulator {
 
         long simulationEndTime = System.currentTimeMillis();
         long totalSimulationTime = simulationEndTime - simulationStartTime;
-
-        // Print statistics
-        printStatistics(threads, totalSimulationTime);
-
         // Display graphical seat map
         SeatMapVisualizer visualizer = new SeatMapVisualizer(connectionMgr);
         visualizer.displaySeatMap();
+        // Print statistics
+        printStatistics(threads, totalSimulationTime);
+
     }
 
     private static void printStatistics(List<UserSeatBookingThread> threads, long totalSimulationTime) {
