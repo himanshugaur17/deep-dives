@@ -1,9 +1,9 @@
 package com.example.locking.strategy;
 
 public enum SQLQueryLockingStrategy {
-    WITH_LOCK("SELECT seat_number FROM seats WHERE user_id IS NULL ORDER BY seat_number LIMIT 1 FOR UPDATE"),
-    NO_LOCK("SELECT seat_number FROM seats WHERE user_id IS NULL ORDER BY seat_number LIMIT 1"),
-    SKIP_LOCKED("SELECT seat_number FROM seats WHERE user_id IS NULL ORDER BY seat_number LIMIT 1 FOR UPDATE SKIP LOCKED");
+    WITH_LOCK("SELECT seat_number FROM seats WHERE user_id IS NULL ORDER BY CAST(SUBSTRING(seat_number FROM '^[0-9]+') AS INTEGER), SUBSTRING(seat_number FROM '[A-Z]+$') LIMIT 1 FOR UPDATE"),
+    NO_LOCK("SELECT seat_number FROM seats WHERE user_id IS NULL ORDER BY CAST(SUBSTRING(seat_number FROM '^[0-9]+') AS INTEGER), SUBSTRING(seat_number FROM '[A-Z]+$') LIMIT 1"),
+    SKIP_LOCKED("SELECT seat_number FROM seats WHERE user_id IS NULL ORDER BY CAST(SUBSTRING(seat_number FROM '^[0-9]+') AS INTEGER), SUBSTRING(seat_number FROM '[A-Z]+$') LIMIT 1 FOR UPDATE SKIP LOCKED");
 
     private final String sqlQuery;
 

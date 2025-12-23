@@ -50,7 +50,7 @@ public class SeatMapVisualizer {
     private Map<String, Integer> fetchSeatAllocations() {
         Map<String, Integer> allocations = new HashMap<>();
 
-        String query = "SELECT seat_number, user_id FROM seats ORDER BY seat_number";
+        String query = "SELECT seat_number, user_id FROM seats ORDER BY CAST(SUBSTRING(seat_number FROM '^[0-9]+') AS INTEGER), SUBSTRING(seat_number FROM '[A-Z]+$')";
 
         try (Connection conn = connectionMgr.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query);

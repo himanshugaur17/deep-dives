@@ -3,6 +3,7 @@ package com.example.sim;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 
 import com.example.db.conn.mgr.DbConnectionMgr;
 import com.example.locking.strategy.SQLQueryLockingStrategy;
@@ -42,7 +43,7 @@ public class UserSeatBookingThread extends Thread {
 
                 String seatNumber = null;
                 try (PreparedStatement selectStatement = connection.prepareStatement(sqlQuery);
-                     ResultSet rs = selectStatement.executeQuery()) {
+                        ResultSet rs = selectStatement.executeQuery()) {
 
                     if (rs.next()) {
                         seatNumber = rs.getString("seat_number");
@@ -51,7 +52,7 @@ public class UserSeatBookingThread extends Thread {
 
                 if (seatNumber != null) {
                     // Book the seat
-                    String updateQuery = "UPDATE seats SET user_id = ? WHERE seat_number = ? AND user_id IS NULL";
+                    String updateQuery = "UPDATE seats SET user_id = ? WHERE seat_number = ?";
                     try (PreparedStatement updateStmt = connection.prepareStatement(updateQuery)) {
                         updateStmt.setInt(1, userId);
                         updateStmt.setString(2, seatNumber);
@@ -65,6 +66,8 @@ public class UserSeatBookingThread extends Thread {
                         } else {
                             connection.rollback();
                             errorMessage = "Failed to book seat " + seatNumber + " (already booked by another user)";
+                            System.out.println(
+                                    "User " + userId + " failed to book seat " + seatNumber + ": already booked.");
                         }
                     }
                 } else {
@@ -72,9 +75,23 @@ public class UserSeatBookingThread extends Thread {
                     errorMessage = "No available seats";
                 }
 
+            } catch (SQLException e) {
+                connection.rollback();
+                String sqlState = e.getSQLState();
+                errorMessage = "Error during booking - SQLState: " + sqlState + ", Message: " + e.getMessage();
+
+                System.err.println("[User " + userId + "] SQLException occurred:");
+                System.err.println("  SQLState: " + sqlState);
+                System.err.println("  Error Code: " + e.getErrorCode());
+                System.err.println("  Message: " + e.getMessage());
+
+                if ("40001".equals(sqlState) || "40P01".equals(sqlState)) {
+                    System.err.println("  >>> SERIALIZATION/DEADLOCK ERROR DETECTED <<<");
+                }
             } catch (Exception e) {
                 connection.rollback();
                 errorMessage = "Error during booking - " + e.getMessage();
+                System.err.println("[User " + userId + "] Exception: " + e.getMessage());
             }
 
         } catch (Exception e) {

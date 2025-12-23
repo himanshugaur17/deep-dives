@@ -31,7 +31,8 @@ public class SeatBookingSimulator {
         System.out.println("2. NO_LOCK - SELECT without locking");
         System.out.println("3. SKIP_LOCKED - SELECT FOR UPDATE SKIP LOCKED\n");
 
-        SQLQueryLockingStrategy strategy = SQLQueryLockingStrategy.WITH_LOCK;
+        SQLQueryLockingStrategy strategy = SQLQueryLockingStrategy.WITH_LOCK; // Change this to select different
+                                                                              // strategies
 
         System.out.println("Running simulation with strategy: " + strategy.getDescription() + "\n");
 
@@ -40,12 +41,12 @@ public class SeatBookingSimulator {
 
     private static void runSimulation(DbConnectionMgr connectionMgr, SQLQueryLockingStrategy strategy)
             throws InterruptedException {
-        int numberOfUsers = 500;
+        int numberOfUsers = 100;
         List<UserSeatBookingThread> threads = new ArrayList<>();
 
         long simulationStartTime = System.currentTimeMillis();
 
-        // Create and start 500 threads
+        // Create and start 100 threads
         System.out.println("Creating " + numberOfUsers + " booking threads...");
         for (int i = 1; i <= numberOfUsers; i++) {
             UserSeatBookingThread thread = new UserSeatBookingThread(connectionMgr, i, strategy);
