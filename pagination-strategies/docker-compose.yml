@@ -1,0 +1,20 @@
+services:
+  # The Database
+  mongodb:
+    image: mongo:latest
+    container_name: mongo_bench_db
+    ports:
+      - "27017:27017"
+    restart: always
+
+  # The Web Interface
+  mongo-express:
+    image: mongo-express
+    container_name: mongo_bench_ui
+    restart: always
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://mongodb:27017/
+    depends_on:
+      - mongodb

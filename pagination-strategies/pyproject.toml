@@ -1,0 +1,11 @@
+[project]
+name = "pagination-strategies"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "faker>=39.0.0",
+    "matplotlib>=3.10.8",
+    "pymongo>=4.15.5",
+]
