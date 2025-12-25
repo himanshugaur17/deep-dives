@@ -21,7 +21,8 @@ def seed_data():
     for _ in range(TOTAL_RECORDS):
         doc={
             "name": fake.name(),
-            "category": random.choice(["Electronics", "Books", "Clothing", "Home"]),
+            "category": random.choice(["Electronics", "Clothing", "Books", "Home", "Toys"]),
+            "status": random.choice(["active", "inactive","pending"]),
             "random_score":random.randint(1,1_00_000),
             "created_at": fake.date_time_this_year()
         }
