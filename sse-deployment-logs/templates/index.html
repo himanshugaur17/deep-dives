@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deployment Logs</title>
+    <style>
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 15px;
+        }
+
+        button {
+            padding: 8px 16px;
+            cursor: pointer;
+            background: #0e639c;
+            color: white;
+            border: none;
+            font-family: inherit;
+            font-size: 14px;
+            border-radius: 2px;
+            margin-left: 10px;
+        }
+
+        button:hover {
+            background: #1177bb;
+        }
+
+        button:disabled {
+            background: #444;
+            cursor: not-allowed;
+            color: #888;
+        }
+
+        .action-area {
+            background: #252526;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+
+        #viewLogsBtn {
+            background: #28a745;
+            display: none;
+            /* Hidden by default */
+        }
+
+        #viewLogsBtn:hover {
+            background: #218838;
+        }
+
+        .status-bar {
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+            color: #888;
+        }
+
+        #logs {
+            border: 1px solid #333;
+            height: 500px;
+            overflow-y: auto;
+            padding: 15px;
+            background: #000;
+            white-space: pre-wrap;
+            font-size: 13px;
+            line-height: 1.5;
+            display: none;
+            /* Hidden until user clicks 'View Logs' */
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+            display: flex;
+        }
+
+        .log-meta {
+            color: #569cd6;
+            margin-right: 10px;
+            min-width: 80px;
+            user-select: none;
+        }
+
+        .log-content {
+            color: #ce9178;
+        }
+
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #444;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <h1>🚀 Deployment Console</h1>
+    </div>
+
+    <div class="action-area">
+        <button id="startBtn" onclick="startJob()">Start New Build</button>
+        <span id="jobInfo" style="margin-left: 15px; color: #fff;"></span>
+        <button id="viewLogsBtn" onclick="">View Logs</button>
+    </div>
+
+    <div id="monitorArea" style="display:none;">
+        <div class="status-bar">
+            Status: <span id="status">Idle</span>
+        </div>
+        <div id="logs"></div>
+    </div>
+    <script>
+        const logsDiv = document.getElementById("logs");
+        const statusSpan = document.getElementById("status");
+        const startBtn = document.getElementById("startBtn");
+        const viewLogsBtn = document.getElementById("viewLogsBtn");
+        const jobInfoSpan = document.getElementById("jobInfo");
+        const monitorArea = document.getElementById("monitorArea");
+
+        let lastKnownId = 0;
+        let eventSource = null;
+        async function startJob() {
+            startBtn.disabled = true
+            try {
+                // 1. Only hit the Start API
+                const resp = await fetch("/jobs/start", { method: "POST" });
+                const data = await resp.json();
+                const jobId = data.job_id;
+
+                // 2. Update UI to show the 'View Logs' option
+                jobInfoSpan.innerHTML = `Job <strong>${jobId}</strong> Started.`;
+
+                // Configure the View button with the specific Job ID
+                viewLogsBtn.style.display = "inline-block";
+                viewLogsBtn.onclick = function () { viewLogs(jobId); };
+
+                // Re-enable start button so user can spawn multiple jobs if they want
+                startBtn.disabled = false;
+                startBtn.innerText = "Start Another Job";
+            } catch (err) {
+                console.error("Failed to start job:", err);
+                jobInfoSpan.innerText = "Error starting job.";
+                startBtn.disabled = false;
+            }
+
+        }
+
+        async function viewLogs(jobId) {
+            viewLogsBtn.disabled = true; // Prevent double clicking
+            monitorArea.style.display = "block";
+            logsDiv.style.display = "block";
+            logsDiv.innerHTML = ""; // Clear previous runs
+            lastKnownId = 0;
+            statusSpan.innerText = "Loading History...";
+            if (eventSource) eventSource.close();
+
+            try {
+                // STEP A: Fetch History (Snapshot)
+                console.log(`Fetching history for ${jobId}...`);
+                const histResp = await fetch(`/jobs/${jobId}/history`);
+                const histData = await histResp.json();
+
+                if (histData.logs) {
+                    histData.logs.forEach(renderLog);
+                }
+                // STEP B: Connect SSE (Delta)
+                console.log(`Connecting stream for ${jobId} after ID ${lastKnownId}`);
+                statusSpan.innerText = "Streaming Live...";
+                statusSpan.style.color = "#4ec9b0";
+                eventSource = new EventSource(`/stream/${jobId}?last_id=${lastKnownId}`);
+
+                eventSource.onmessage = (event) => {
+                    const logData = JSON.parse(event.data);
+                    renderLog(logData);
+                };
+                eventSource.onerror = (err) => {
+                    console.error("Stream closed or error.", err);
+                    if (statusSpan.innerText !== "Completed ✅") {
+                        // Optional: Handle reconnect UI here
+                    }
+                    eventSource.close();
+                };
+            } catch (err) {
+                console.error("Error viewing logs:", err);
+                statusSpan.innerText = "Error loading logs.";
+            }
+        }
+        function renderLog(data) {
+            if (data.id <= lastKnownId) return;
+
+            const div = document.createElement("div");
+            div.className = "log-entry";
+            div.innerHTML = `
+                <span class="log-meta">[${data.id}/${data.total_steps}]</span>
+                <span class="log-content">${data.msg}</span>
+            `;
+
+            logsDiv.appendChild(div);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+
+            lastKnownId = data.id;
+
+            if (data.id >= data.total_steps) {
+                statusSpan.innerText = "Completed ✅";
+                statusSpan.style.color = "#00e676";
+                if (eventSource) eventSource.close();
+
+                // Re-enable the view button if they want to 'refresh' later
+                viewLogsBtn.disabled = false;
+                viewLogsBtn.innerText = "Re-watch Logs";
+            }
+        }
+    </script>
+</body>
+
+</html>

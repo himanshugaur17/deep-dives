@@ -1,0 +1,8 @@
+services:
+  redis:
+    image: redis:alpine
+    container_name: redis-broker
+    restart: always
+    ports:
+      - "6379:6379"
+    # No volumes mapped; data is ephemeral and stored only in RAM.
