@@ -5,4 +5,3 @@ services:
     restart: always
     ports:
       - "6379:6379"
-    # No volumes mapped; data is ephemeral and stored only in RAM.

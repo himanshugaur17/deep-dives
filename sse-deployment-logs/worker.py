@@ -6,7 +6,7 @@ import redis
 import json
 
 fake = Faker()
-r=redis.Redis(host='localhost', port=6379, db=0)
+r=redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
 
 def generate_log_line():
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -23,7 +23,7 @@ def generate_log_line():
 def run_build(job_id):
     channel = f"channel:{job_id}"
     list_key = f"logs:{job_id}" # we can add ttl to this key if needed
-    total_lines = random.randint(20, 50)
+    total_lines = random.randint(10, 20)
     for i in range(total_lines):
         log_line = generate_log_line()
         msg={
@@ -34,5 +34,5 @@ def run_build(job_id):
         msg_json=json.dumps(msg)
         r.rpush(list_key, msg_json)
         r.publish(channel, msg_json)
-        time.sleep(random.uniform(3, 5))  # Simulate time delay between log lines
+        time.sleep(random.uniform(1, 3))  # Simulate time delay between log lines
     print(f"Build {job_id} completed. Total log lines: {total_lines}")
