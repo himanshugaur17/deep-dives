@@ -1,5 +1,8 @@
 package com.example.sever;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -34,13 +37,18 @@ public class BackendSever {
         // connection
         System.out.println("Handling client " + clientSocket.getRemoteSocketAddress());
         totalVirtualThreads.incrementAndGet();
-        try {
-            // Simulate some work with the client
-            Thread.sleep(1000);
+        try (clientSocket;
+                var in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                var out = new PrintWriter(clientSocket.getOutputStream(), true)) {
+            String line;
+            while ((line = in.readLine()) != null) {
+                System.out.println("Received: " + line);
+                out.println("Echo: " + line);
+            }
             System.out.println("Finished handling client " + clientSocket.getRemoteSocketAddress()
                     + " total virtual threads: " + totalVirtualThreads.get());
             totalVirtualThreads.decrementAndGet();
-        } catch (InterruptedException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
