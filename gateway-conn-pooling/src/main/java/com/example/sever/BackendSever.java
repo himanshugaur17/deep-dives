@@ -43,7 +43,7 @@ public class BackendSever {
             String line;
             while ((line = in.readLine()) != null) {
                 System.out.println("Received: " + line);
-                out.println("Echo: " + line);
+                out.println("200 OK");
             }
             System.out.println("Finished handling client " + clientSocket.getRemoteSocketAddress()
                     + " total virtual threads: " + totalVirtualThreads.get());
