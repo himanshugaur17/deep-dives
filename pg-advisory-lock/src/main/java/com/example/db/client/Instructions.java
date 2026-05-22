@@ -1,4 +1,4 @@
-package com.example.db.query;
+package com.example.db.client;
 
 import com.example.connection.IConnection;
 
