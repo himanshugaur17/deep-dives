@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: postgres-mv-vacuum-poc
+  main:
+    banner-mode: off
+    web-application-type: none
+  datasource:
+    url: ${POC_DB_URL:jdbc:postgresql://localhost:55432/mv_vacuum_poc}
+    username: ${POC_DB_USER:poc_user}
+    password: ${POC_DB_PASSWORD:poc_password}
+    hikari:
+      maximum-pool-size: 2
+  sql:
+    init:
+      mode: never
+
+logging:
+  level:
+    root: WARN
+
+app:
+  poc:
+    enabled: true
+    reset-schema: true
+    refresh-cycles: 10
+    pause-between-cycles: true

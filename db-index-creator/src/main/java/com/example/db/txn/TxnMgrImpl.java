@@ -6,6 +6,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.example.db.StorageEngine;
+import com.example.db.runtime.DbRuntime;
 
 public class TxnMgrImpl implements TxnMgr {
     private final AtomicInteger txnIdGenerator = new AtomicInteger(1);
@@ -19,12 +20,16 @@ public class TxnMgrImpl implements TxnMgr {
 
     @Override
     public <R> CompletableFuture<R> executeInTxn(TxnBlock<R> block) throws Exception {
-        CompletableFuture<R> future = CompletableFuture.supplyAsync(()->{
-            int txnId= txnIdGenerator.getAndIncrement();
-            System.out.println("Starting transaction with ID: " + txnId);
-            
-            
+        return CompletableFuture.supplyAsync(() -> {
+            int txnId = txnIdGenerator.getAndIncrement();
+            R result = ScopedValue.where(DbRuntime.TXN_CONTEXT, txnId).call(() -> {
+                try {
+                    return block.execute(storageEngine);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            return result;
         }, vExecutor);
-        return null;
     }
 }
